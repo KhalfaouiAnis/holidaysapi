@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String     @id @default(cuid())
+  name       String
+  created_at DateTime   @default(now())
+  updated_at DateTime   @updatedAt
+  avatar     String
+  username   String     @unique
+  email      String     @unique
+  password   String
+  properties Property[] @relation("UserProperties")
+  bookings   Booking[]
+  favorites  Favorite[]
+}
+
+model Property {
+  id              String     @id @default(cuid())
+  name            String
+  description     String
+  price_per_night Float
+  ownerId         String
+  owner           User       @relation("UserProperties", fields: [ownerId], references: [id])
+  created_at      DateTime   @default(now())
+  updated_at      DateTime   @updatedAt
+  images          String[]
+  address         String
+  city            String
+  country         String
+  amenities       String
+  capacity        Int
+  longitude       Float
+  latitude        Float
+  latitude_delta  Float
+  longitude_delta Float
+  bookings        Booking[]
+  favorites       Favorite[]
+
+  @@index([ownerId])
+}
+
+model Booking {
+  id                 String    @id @default(cuid())
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
+  property_id        String
+  user_id            String
+  check_in           DateTime
+  check_out          DateTime
+  total_price        Float
+  status             String    @default("pending")
+  guest_count        Int
+  special_requests   String?
+  cancellation_reason String?
+  payment_intent_id  String?
+  payment_status     String    @default("pending")
+
+  property           Property  @relation(fields: [property_id], references: [id])
+  user               User      @relation(fields: [user_id], references: [id])
+  review            Review?
+
+  @@index([property_id])
+  @@index([user_id])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  booking_id String   @unique
+  rating     Int      @db.SmallInt
+  comment    String?
+  booking    Booking  @relation(fields: [booking_id], references: [id])
+
+  @@index([booking_id])
+}
+
+model Favorite {
+  user_id     String
+  property_id String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  user        User     @relation(fields: [user_id], references: [id])
+  property    Property @relation(fields: [property_id], references: [id])
+
+  @@id([user_id, property_id])
+}
