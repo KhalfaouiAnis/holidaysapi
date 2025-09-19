@@ -2,8 +2,6 @@ import { jwt } from "@elysiajs/jwt";
 import { Elysia } from "elysia";
 import { db } from "../db";
 
-console.log(process.env.JWT_TOKEN, "token");
-
 export const authPlugin = (app: Elysia) =>
   app
     .use(
