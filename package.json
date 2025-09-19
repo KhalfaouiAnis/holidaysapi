@@ -3,6 +3,7 @@
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "NODE_ENV=production bun src/index.ts",
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
