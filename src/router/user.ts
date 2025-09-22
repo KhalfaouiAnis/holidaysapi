@@ -31,7 +31,7 @@ export const userRouter = new Elysia({ prefix: "/users" })
               email,
               username,
               password: hashedPassword,
-              avatar: getRandomAvatar(), // Implement this based on your needs
+              avatar: getRandomAvatar(),
             },
             select: {
               id: true,
@@ -65,6 +65,7 @@ export const userRouter = new Elysia({ prefix: "/users" })
       }
 
       const validPassword = await Bun.password.verify(password, user.password);
+
       if (!validPassword) {
         return new Response("Invalid credentials", { status: 401 });
       }
@@ -72,7 +73,7 @@ export const userRouter = new Elysia({ prefix: "/users" })
       const token = await jwt.sign({
         sub: user.id,
         exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
-        iat: undefined,
+        iat: true,
       });
 
       return {
@@ -98,7 +99,7 @@ export const userRouter = new Elysia({ prefix: "/users" })
     return { user };
   })
   .get("/stats", async ({ user }) => {
-    const [favoriteCount, bookingCount] = await Promise.all([
+    const [favoriteCount, bookingsCount] = await Promise.all([
       db.favorite.count({
         where: { user_id: user.id },
       }),
@@ -110,8 +111,8 @@ export const userRouter = new Elysia({ prefix: "/users" })
     return {
       stats: {
         ...user,
-        favoritePropertiesCount: favoriteCount,
-        bookingsCount: bookingCount,
+        favoriteCount,
+        bookingsCount,
       },
     };
   })
@@ -153,6 +154,58 @@ export const userRouter = new Elysia({ prefix: "/users" })
       message: "Account deleted successfully",
     };
   });
+// .post(
+//   "/subscription",
+//   async ({ body }) => {
+//     console.log("[/users/subscription] Request received:", body);
+//     const { pushToken, deviceId } = body;
+
+//     if (!Expo.isExpoPushToken(pushToken)) {
+//       console.error(`[/users/subscription] Invalid push token: ${pushToken}`);
+//       return new Response("Invalid Expo push token", { status: 400 });
+//     }
+
+//     try {
+//       const updatedUser = await db.user.upsert({
+//         create: {
+//           deviceId,
+//           expoPushToken: pushToken,
+//         },
+//         update: {
+//           deviceId,
+//           expoPushToken: pushToken,
+//         },
+//         where: {
+//           deviceId,
+//         },
+//       });
+
+//       const tickets = await sendPushNotifications([
+//         {
+//           to: pushToken,
+//           sound: "default",
+//           title: "Welcome!",
+//           body: "Yay!",
+//           data: { message: "Welcome" },
+//         },
+//       ]);
+
+//       return {
+//         message: "Push notification token registered successfully",
+//         user: updatedUser,
+//         notificationTickets: tickets,
+//       };
+//     } catch (err) {
+//       return new Response(`Subscription failed: ${err}`, { status: 500 });
+//     }
+//   },
+//   {
+//     body: t.Object({
+//       pushToken: t.String(),
+//       deviceId: t.String(),
+//     }),
+//   }
+// );
 
 function getRandomAvatar() {
   const avatars = [

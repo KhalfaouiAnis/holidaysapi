@@ -28,7 +28,9 @@ export const bookingRouter = new Elysia()
       // Validate dates
       if (check_in > check_out) {
         console.log("check_in", check_in);
-        return new Response("Check-out must be after check-in", { status: 400 });
+        return new Response("Check-out must be after check-in", {
+          status: 400,
+        });
       }
 
       const property = await db.property.findUnique({
@@ -57,7 +59,9 @@ export const bookingRouter = new Elysia()
       });
 
       if (existingBooking) {
-        return new Response("Property is not available for these dates", { status: 409 });
+        return new Response("Property is not available for these dates", {
+          status: 409,
+        });
       }
 
       const nights =
@@ -171,7 +175,7 @@ export const bookingRouter = new Elysia()
       ]);
 
       return {
-        bookings,
+        data: bookings,
         totalCount,
         page,
         pageSize,
@@ -208,7 +212,9 @@ export const bookingRouter = new Elysia()
     }
 
     if (booking.user_id !== user?.id) {
-      return new Response("Not authorized to view this booking", { status: 403 });
+      return new Response("Not authorized to view this booking", {
+        status: 403,
+      });
     }
 
     return { booking };
@@ -224,15 +230,19 @@ export const bookingRouter = new Elysia()
       });
 
       if (!booking) {
-       return new Response("Booking not found", { status: 404 });
+        return new Response("Booking not found", { status: 404 });
       }
 
       if (booking.user_id !== user?.id) {
-       return new Response("Not authorized to update this booking", { status: 403 });
+        return new Response("Not authorized to update this booking", {
+          status: 403,
+        });
       }
 
       if (booking.status === "completed" || booking.status === "cancelled") {
-       return new Response("Cannot modify completed or cancelled bookings", { status: 400 });
+        return new Response("Cannot modify completed or cancelled bookings", {
+          status: 400,
+        });
       }
 
       let newTotalPrice = booking.total_price;
@@ -243,7 +253,9 @@ export const bookingRouter = new Elysia()
         const check_out = new Date(body.check_out || booking.check_out);
 
         if (check_in >= check_out) {
-         return new Response("Check-out must be after check-in", { status: 400 });
+          return new Response("Check-out must be after check-in", {
+            status: 400,
+          });
         }
 
         const existingBooking = await db.booking.findFirst({
@@ -265,7 +277,9 @@ export const bookingRouter = new Elysia()
         });
 
         if (existingBooking) {
-         return new Response("Property is not available for these dates", { status: 409 });
+          return new Response("Property is not available for these dates", {
+            status: 409,
+          });
         }
 
         const nights =
@@ -312,13 +326,15 @@ export const bookingRouter = new Elysia()
       if (newTotalPrice !== booking.total_price) {
         try {
           if (!booking.payment_intent_id) {
-           return new Response("Payment intent not found", { status: 400 });
+            return new Response("Payment intent not found", { status: 400 });
           }
           await stripe.paymentIntents.update(booking.payment_intent_id, {
             amount: Math.round(newTotalPrice * 100),
           });
         } catch {
-         return new Response("Failed to update payment amount", { status: 500 });
+          return new Response("Failed to update payment amount", {
+            status: 500,
+          });
         }
       }
 
@@ -337,15 +353,17 @@ export const bookingRouter = new Elysia()
     });
 
     if (!booking) {
-     return new Response("Booking not found", { status: 404 });
+      return new Response("Booking not found", { status: 404 });
     }
 
     if (booking.user_id !== user?.id) {
-     return new Response("Not authorized to delete this booking", { status: 403 });
+      return new Response("Not authorized to delete this booking", {
+        status: 403,
+      });
     }
 
     if (booking.status === "completed") {
-     return new Response("Cannot delete completed bookings", { status: 400 });
+      return new Response("Cannot delete completed bookings", { status: 400 });
     }
 
     try {
@@ -365,6 +383,6 @@ export const bookingRouter = new Elysia()
         message: "Booking cancelled successfully",
       };
     } catch {
-     return new Response("Failed to cancel booking", { status: 500 });
+      return new Response("Failed to cancel booking", { status: 500 });
     }
   });

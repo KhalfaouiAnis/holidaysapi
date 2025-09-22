@@ -13,10 +13,11 @@
     "@elysiajs/jwt": "^1.1.1",
     "@elysiajs/swagger": "^1.1.6",
     "@prisma/client": "^6.0.1",
+    "elysia": "latest",
     "elysia-ip": "^1.0.7",
     "elysia-rate-limit": "^4.1.0",
-    "stripe": "^17.4.0",
-    "elysia": "latest"
+    "expo-server-sdk": "^4.0.0",
+    "stripe": "^17.4.0"
   },
   "devDependencies": {
     "bun-types": "latest",

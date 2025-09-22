@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres
+    environment:
+      - POSTGRES_USER=holidays
+      - POSTGRES_PASSWORD=holidays
+      - POSTGRES_DB=holidays
+    ports:
+      - 5432:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

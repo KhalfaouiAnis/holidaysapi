@@ -16,6 +16,7 @@ const PropertyInput = t.Object({
   latitude: t.Number(),
   longitude_delta: t.Number(),
   latitude_delta: t.Number(),
+  is_featured: t.Optional(t.Boolean())
 });
 
 export const propertyRouter = new Elysia({ prefix: "/properties" })
@@ -96,7 +97,66 @@ export const propertyRouter = new Elysia({ prefix: "/properties" })
       );
 
       return {
-        properties: propertiesWithFavorites,
+        data: propertiesWithFavorites,
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      };
+    },
+    {
+      query: t.Object({
+        page: t.Optional(t.String()),
+        pageSize: t.Optional(t.String()),
+      }),
+    }
+  )
+  .get(
+    "/featured",
+    async ({ query, user }) => {
+      const page = Number(query?.page || 1);
+      const pageSize = Number(query?.pageSize || 10);
+      const skip = (page - 1) * pageSize;
+
+      const [properties, totalCount] = await Promise.all([
+        db.property.findMany({
+          where: {
+            is_featured: true,
+          },
+          take: pageSize,
+          skip,
+          select: {
+            id: true,
+            name:true,
+            images: true,
+            price_per_night: true,
+
+          },
+          orderBy: {
+            created_at: "desc",
+          },
+        }),
+        db.property.count(),
+      ]);
+
+      // Check favorite status for each property
+      const propertiesWithFavorites = await Promise.all(
+        properties.map(async (property: Partial<IProperty>) => {
+          const isFavorite = await db.favorite.findFirst({
+            where: {
+              user_id: user.id,
+              property_id: property.id,
+            },
+          });
+          return {
+            ...property,
+            is_favorite: !!isFavorite,
+          };
+        })
+      );
+
+      return {
+        data: propertiesWithFavorites,
         totalCount,
         page,
         pageSize,
@@ -154,7 +214,7 @@ export const propertyRouter = new Elysia({ prefix: "/properties" })
       );
 
       return {
-        properties: propertiesWithFavorites,
+        data: propertiesWithFavorites,
       };
     },
     {
@@ -209,7 +269,7 @@ export const propertyRouter = new Elysia({ prefix: "/properties" })
       );
 
       return {
-        properties: propertiesWithFavorites,
+        data: propertiesWithFavorites,
         totalCount,
         page,
         pageSize,

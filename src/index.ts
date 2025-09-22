@@ -7,7 +7,6 @@ import { rateLimit } from "elysia-rate-limit";
 import { bookingRouter } from "./router/booking";
 import { favoriteRouter } from "./router/favorite";
 import { propertyRouter } from "./router/property";
-import { propertyListRouter } from "./router/property-list";
 import { userRouter } from "./router/user";
 import { webhookRouter } from "./services/webhook";
 
@@ -42,7 +41,6 @@ const app = new Elysia()
   .use(propertyRouter)
   .use(bookingRouter)
   .use(favoriteRouter)
-  .use(propertyListRouter)
   // Webhook routes (no /api prefix for webhooks)
   .use(webhookRouter)
   // Health check route

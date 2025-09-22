@@ -42,30 +42,31 @@ model Property {
   longitude_delta Float
   bookings        Booking[]
   favorites       Favorite[]
+  is_featured     Boolean?   @default(false)
 
   @@index([ownerId])
 }
 
 model Booking {
-  id                 String    @id @default(cuid())
-  created_at         DateTime  @default(now())
-  updated_at         DateTime  @updatedAt
-  deleted_at         DateTime?
-  property_id        String
-  user_id            String
-  check_in           DateTime
-  check_out          DateTime
-  total_price        Float
-  status             String    @default("pending")
-  guest_count        Int
-  special_requests   String?
+  id                  String    @id @default(cuid())
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  deleted_at          DateTime?
+  property_id         String
+  user_id             String
+  check_in            DateTime
+  check_out           DateTime
+  total_price         Float
+  status              String    @default("pending")
+  guest_count         Int
+  special_requests    String?
   cancellation_reason String?
-  payment_intent_id  String?
-  payment_status     String    @default("pending")
+  payment_intent_id   String?
+  payment_status      String    @default("pending")
 
-  property           Property  @relation(fields: [property_id], references: [id])
-  user               User      @relation(fields: [user_id], references: [id])
-  review            Review?
+  property Property @relation(fields: [property_id], references: [id])
+  user     User     @relation(fields: [user_id], references: [id])
+  review   Review?
 
   @@index([property_id])
   @@index([user_id])
