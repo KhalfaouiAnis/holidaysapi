@@ -8,17 +8,20 @@ datasource db {
 }
 
 model User {
-  id         String     @id @default(cuid())
-  name       String
-  created_at DateTime   @default(now())
-  updated_at DateTime   @updatedAt
-  avatar     String
-  username   String     @unique
-  email      String     @unique
-  password   String
-  properties Property[] @relation("UserProperties")
-  bookings   Booking[]
-  favorites  Favorite[]
+  id           String     @id @default(cuid())
+  name         String
+  created_at   DateTime   @default(now())
+  updated_at   DateTime   @updatedAt
+  avatar       String
+  username     String     @unique
+  email        String     @unique
+  password     String
+  properties   Property[] @relation("UserProperties")
+  bookings     Booking[]
+  favorites    Favorite[]
+  Property     Property?  @relation(fields: [propertyId], references: [id])
+  propertyId   String?
+  ratingsGiven Ratings[]
 }
 
 model Property {
@@ -43,6 +46,8 @@ model Property {
   bookings        Booking[]
   favorites       Favorite[]
   is_featured     Boolean?   @default(false)
+  User            User[]
+  ratings         Ratings[]
 
   @@index([ownerId])
 }
@@ -91,6 +96,18 @@ model Favorite {
   updated_at  DateTime @updatedAt
   user        User     @relation(fields: [user_id], references: [id])
   property    Property @relation(fields: [property_id], references: [id])
+
+  @@id([user_id, property_id])
+}
+
+model Ratings {
+  rating      Int
+  user_id     String
+  property_id String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  property    Property @relation(fields: [property_id], references: [id])
+  user        User     @relation(fields: [user_id], references: [id])
 
   @@id([user_id, property_id])
 }

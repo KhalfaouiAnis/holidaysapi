@@ -16,8 +16,10 @@ const PropertyInput = t.Object({
   latitude: t.Number(),
   longitude_delta: t.Number(),
   latitude_delta: t.Number(),
-  is_featured: t.Optional(t.Boolean())
+  is_featured: t.Optional(t.Boolean()),
 });
+
+// TODO: start/unstar a property
 
 export const propertyRouter = new Elysia({ prefix: "/properties" })
   .use(authPlugin)
@@ -51,6 +53,54 @@ export const propertyRouter = new Elysia({ prefix: "/properties" })
       body: PropertyInput,
     }
   )
+  .post("/ratings/:id", async ({ params: { id }, user }) => {
+    // Check if property exists
+    const property = await db.property.findUnique({
+      where: { id },
+    });
+
+    if (!property) {
+      return new Response("Property not found", { status: 404 });
+    }
+
+    // Check if it's already rated
+    const rating = await db.ratings.findUnique({
+      where: {
+        user_id_property_id: {
+          user_id: user.id,
+          property_id: id,
+        },
+      },
+    });
+
+    if (rating) {
+      // Remove rate
+      await db.ratings.delete({
+        where: {
+          user_id_property_id: {
+            user_id: user.id,
+            property_id: id,
+          },
+        },
+      });
+
+      return {
+        message: "Review removed",
+      };
+    }
+    // Add rate
+    await db.ratings.create({
+      data: {
+        user_id: user.id,
+        property_id: id,
+        rating: 1,
+      },
+    });
+
+    return {
+      message: "Review added",
+    };
+  })
   .get(
     "/",
     async ({ query, user }) => {
@@ -89,9 +139,15 @@ export const propertyRouter = new Elysia({ prefix: "/properties" })
               property_id: property.id,
             },
           });
+          const rating = await db.ratings.count({
+            where: {
+              property_id: property.id,
+            },
+          });
           return {
             ...property,
             is_favorite: !!isFavorite,
+            rating,
           };
         })
       );
@@ -113,7 +169,7 @@ export const propertyRouter = new Elysia({ prefix: "/properties" })
   )
   .get(
     "/featured",
-    async ({ query, user }) => {
+    async ({ query }) => {
       const page = Number(query?.page || 1);
       const pageSize = Number(query?.pageSize || 10);
       const skip = (page - 1) * pageSize;
@@ -127,10 +183,9 @@ export const propertyRouter = new Elysia({ prefix: "/properties" })
           skip,
           select: {
             id: true,
-            name:true,
+            name: true,
             images: true,
             price_per_night: true,
-
           },
           orderBy: {
             created_at: "desc",
@@ -139,24 +194,8 @@ export const propertyRouter = new Elysia({ prefix: "/properties" })
         db.property.count(),
       ]);
 
-      // Check favorite status for each property
-      const propertiesWithFavorites = await Promise.all(
-        properties.map(async (property: Partial<IProperty>) => {
-          const isFavorite = await db.favorite.findFirst({
-            where: {
-              user_id: user.id,
-              property_id: property.id,
-            },
-          });
-          return {
-            ...property,
-            is_favorite: !!isFavorite,
-          };
-        })
-      );
-
       return {
-        data: propertiesWithFavorites,
+        data: properties,
         totalCount,
         page,
         pageSize,

@@ -27,7 +27,6 @@ export const bookingRouter = new Elysia()
 
       // Validate dates
       if (check_in > check_out) {
-        console.log("check_in", check_in);
         return new Response("Check-out must be after check-in", {
           status: 400,
         });
@@ -78,7 +77,7 @@ export const bookingRouter = new Elysia()
 
         const ephemeralKey = await stripe.ephemeralKeys.create(
           { customer: customer.id },
-          { apiVersion: "2024-11-20.acacia" }
+          { apiVersion: "2025-02-24.acacia" }
         );
 
         const paymentIntent = await stripe.paymentIntents.create({
