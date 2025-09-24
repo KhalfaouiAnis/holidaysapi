@@ -9,6 +9,8 @@ import { favoriteRouter } from "./router/favorite";
 import { propertyRouter } from "./router/property";
 import { userRouter } from "./router/user";
 import { webhookRouter } from "./services/webhook";
+import { socket } from "./socket/socket";
+import { NotificationRoute } from "./router/notification";
 
 const app = new Elysia()
   .use(
@@ -18,7 +20,6 @@ const app = new Elysia()
       credentials: true,
     })
   )
-
   .use(logger())
   .use(ip())
   .use(
@@ -32,18 +33,15 @@ const app = new Elysia()
       path: "/swagger",
     })
   )
-  .get("/", () => {
-    return { message: "Welcome to Elysia" };
-  })
+  .get("/", () => ({ message: "Welcome to Elysia" }))
   .get("/health", () => ({ status: "ok" }))
-  // Routes
   .use(userRouter)
   .use(propertyRouter)
   .use(bookingRouter)
   .use(favoriteRouter)
-  // Webhook routes (no /api prefix for webhooks)
   .use(webhookRouter)
-  // Health check route
+  .use(NotificationRoute)
+  .use(socket)
   .listen(process.env.PORT || 3000);
 
 console.log(

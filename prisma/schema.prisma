@@ -8,20 +8,22 @@ datasource db {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  name         String
-  created_at   DateTime   @default(now())
-  updated_at   DateTime   @updatedAt
-  avatar       String
-  username     String     @unique
-  email        String     @unique
-  password     String
-  properties   Property[] @relation("UserProperties")
-  bookings     Booking[]
-  favorites    Favorite[]
-  Property     Property?  @relation(fields: [propertyId], references: [id])
-  propertyId   String?
-  ratingsGiven Ratings[]
+  id                    String             @id @default(cuid())
+  name                  String
+  created_at            DateTime           @default(now())
+  updated_at            DateTime           @updatedAt
+  avatar                String
+  username              String             @unique
+  email                 String             @unique
+  password              String
+  properties            Property[]         @relation("UserProperties")
+  bookings              Booking[]
+  favorites             Favorite[]
+  propertyId            String?
+  Property              Property?          @relation(fields: [propertyId], references: [id])
+  ratingsGiven          Ratings[]
+  userNotifications     UserNotification[]
+  targetedNotifications Notification[]     @relation("TargetedNotification")
 }
 
 model Property {
@@ -69,24 +71,12 @@ model Booking {
   payment_intent_id   String?
   payment_status      String    @default("pending")
 
-  property Property @relation(fields: [property_id], references: [id])
-  user     User     @relation(fields: [user_id], references: [id])
-  review   Review?
+  property         Property           @relation(fields: [property_id], references: [id])
+  user             User               @relation(fields: [user_id], references: [id])
+  UserNotification UserNotification[]
 
   @@index([property_id])
   @@index([user_id])
-}
-
-model Review {
-  id         String   @id @default(cuid())
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  booking_id String   @unique
-  rating     Int      @db.SmallInt
-  comment    String?
-  booking    Booking  @relation(fields: [booking_id], references: [id])
-
-  @@index([booking_id])
 }
 
 model Favorite {
@@ -110,4 +100,37 @@ model Ratings {
   user        User     @relation(fields: [user_id], references: [id])
 
   @@id([user_id, property_id])
+}
+
+model Notification {
+  id           String           @id @default(cuid())
+  title        String?
+  message      String
+  type         NotificationType
+  targetUserId String?
+  createdAt    DateTime         @default(now())
+
+  userNotifications UserNotification[]
+  targetUser        User?              @relation("TargetedNotification", fields: [targetUserId], references: [id])
+
+  @@index([targetUserId])
+}
+
+model UserNotification {
+  id             String       @id @default(cuid())
+  notificationId String
+  userId         String
+  isRead         Boolean      @default(false)
+  readAt         DateTime?
+  Booking        Booking?     @relation(fields: [bookingId], references: [id])
+  bookingId      String?
+  notification   Notification @relation(fields: [notificationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([notificationId, userId])
+}
+
+enum NotificationType {
+  NEW_PLACE
+  BOOKING
 }

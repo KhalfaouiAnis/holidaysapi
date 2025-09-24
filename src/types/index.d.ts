@@ -14,3 +14,4 @@ interface IProperty {
   longitude_delta: number;
   latitude_delta: number;
 }
+

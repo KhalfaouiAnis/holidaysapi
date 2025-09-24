@@ -6,7 +6,7 @@ import { authPlugin } from "../middleware/auth";
 export const userRouter = new Elysia({ prefix: "/users" })
   .use(
     jwt({
-      secret: Bun.env.JWT_TOKEN as string,
+      secret: Bun.env.JWT_TOKEN_SECRET as string,
     })
   )
   .guard(
@@ -70,7 +70,16 @@ export const userRouter = new Elysia({ prefix: "/users" })
         return new Response("Invalid credentials", { status: 401 });
       }
 
+      const claims = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        username: user.username,
+        avatar: user.avatar,
+      };
+
       const token = await jwt.sign({
+        user: claims,
         sub: user.id,
         exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
         iat: true,
@@ -78,13 +87,7 @@ export const userRouter = new Elysia({ prefix: "/users" })
 
       return {
         token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-          avatar: user.avatar,
-        },
+        user: claims,
       };
     },
     {
@@ -157,7 +160,6 @@ export const userRouter = new Elysia({ prefix: "/users" })
 // .post(
 //   "/subscription",
 //   async ({ body }) => {
-//     console.log("[/users/subscription] Request received:", body);
 //     const { pushToken, deviceId } = body;
 
 //     if (!Expo.isExpoPushToken(pushToken)) {

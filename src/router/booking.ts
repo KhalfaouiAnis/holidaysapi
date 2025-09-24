@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import Stripe from "stripe";
 import { db } from "../db";
 import { authPlugin } from "../middleware/auth";
+import { Booking } from "@prisma/client";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-02-24.acacia",
@@ -20,8 +21,6 @@ export const bookingRouter = new Elysia()
   .post(
     "bookings/",
     async ({ body, user }) => {
-      console.log(body);
-      console.log("incoming request");
       const check_in = new Date(body.check_in);
       const check_out = new Date(body.check_out);
 
@@ -103,7 +102,7 @@ export const bookingRouter = new Elysia()
             guest_count: body.guest_count,
             special_requests: body.special_requests,
             payment_intent_id: paymentIntent.id,
-            payment_status: "pending",
+            payment_status: "accepted",
           },
           include: {
             property: true,
@@ -158,7 +157,6 @@ export const bookingRouter = new Elysia()
                 avatar: true,
               },
             },
-            review: true,
           },
           skip,
           take: pageSize,
@@ -202,7 +200,6 @@ export const bookingRouter = new Elysia()
             avatar: true,
           },
         },
-        review: true,
       },
     });
 
@@ -245,7 +242,7 @@ export const bookingRouter = new Elysia()
       }
 
       let newTotalPrice = booking.total_price;
-      let updateData: any = {};
+      let updateData: Partial<Booking> = {};
 
       if (body.check_in || body.check_out) {
         const check_in = new Date(body.check_in || booking.check_in);
@@ -317,7 +314,6 @@ export const bookingRouter = new Elysia()
               avatar: true,
             },
           },
-          review: true,
         },
       });
 

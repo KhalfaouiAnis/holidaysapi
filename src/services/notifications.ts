@@ -1,114 +1,77 @@
-// utils/notifications.ts
-import { Expo, type ExpoPushMessage } from "expo-server-sdk";
+import { NotificationType } from "@prisma/client";
+import { db } from "../db";
+import { connections } from "../socket/store";
 
-// Create a new Expo SDK client
-// optionally providing an access token if you have enabled push security
-const expo = new Expo({
-  accessToken: process.env.EXPO_TOKEN_SUPERSIMPLENOTES,
-});
+export async function sendAndSaveNotification(params: {
+  title?: string;
+  message: string;
+  targetUserId?: string;
+  type: NotificationType;
+  createPerUserTracking?: boolean;
+}) {
+  const { title, message, type, targetUserId } = params;
 
-/**
- * Send push notifications using the official Expo SDK
- *
- * @param messages Array of Expo push messages
- * @returns Array of Expo push tickets
- */
-export async function sendPushNotifications(messages: ExpoPushMessage[]) {
-  // Filter out any invalid Expo push tokens
-  const validMessages = messages.filter((message) => {
-    const pushToken = Array.isArray(message.to) ? message.to[0] : message.to;
-    return Expo.isExpoPushToken(pushToken);
-  });
+  // Step 1: Send via WebSocket
+  const payload = JSON.stringify({ title, message, type, id: Date.now() });
 
-  // Chunk the notifications to reduce the number of requests
-  const chunks = expo.chunkPushNotifications(validMessages);
-  const tickets = [];
-
-  // Send the chunks to the Expo push notification service
-  for (const chunk of chunks) {
-    try {
-      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-      tickets.push(...ticketChunk);
-
-      // Log any errors in the tickets
-      ticketChunk.forEach((ticket, index) => {
-        if (ticket.status === "error") {
-          console.error("Error sending notification:", ticket.details);
-          console.error("Original message:", chunk[index]);
-        }
-      });
-    } catch (error) {
-      console.error("Error sending push notification chunk:", error);
-    }
-  }
-
-  return tickets;
-}
-
-/**
- * Check the receipts of sent notifications
- *
- * @param receiptIds Array of receipt IDs from previously sent notifications
- */
-export async function checkPushNotificationReceipts(receiptIds: string[]) {
-  const receiptIdChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
-
-  // biome-ignore lint/style/useConst: <explanation>
-  for (let chunk of receiptIdChunks) {
-    try {
-      const receipts = await expo.getPushNotificationReceiptsAsync(chunk);
-
-      // Process each receipt
-      for (const [receiptId, receipt] of Object.entries(receipts)) {
-        if (receipt.status === "ok") {
-          // Notification was delivered successfully
-          continue;
-        }
-        if (receipt.status === "error") {
-          console.error(`Error with receipt ${receiptId}:`, receipt.message);
-
-          // Handle specific error codes
-          if (receipt.details?.error) {
-            // The error codes are listed in the Expo documentation
-            console.error(`Error code: ${receipt.details.error}`);
-
-            // Handle device not registered errors by removing the token from your database
-            if (
-              receipt.details.error === "DeviceNotRegistered" ||
-              receipt.details.error === "InvalidCredentials"
-            ) {
-              // You might want to remove this token from your database
-              // await removeExpoPushToken(receiptId);
-            }
-          }
-        }
+  if (type === NotificationType.NEW_PLACE) {
+    // Broadcast to all connected users
+    for (const ws of connections.values()) {
+      try {
+        ws.send(payload);
+      } catch (error) {
+        console.error("Broadcast send failed:", error);
       }
-    } catch (error) {
-      console.error("Error checking push notification receipts:", error);
+    }
+  } else if (type === NotificationType.BOOKING && targetUserId) {
+    // Targeted send
+    const targetWs = connections.get(targetUserId);
+    if (targetWs) {
+      try {
+        targetWs.send(payload);
+      } catch (error) {
+        console.error("Targeted send failed:", error);
+      }
     }
   }
-}
 
-/**
- * Process the push notification tickets and schedule receipt checking
- *
- * @param tickets The tickets returned from sendPushNotifications
- */
+  // Step 2: Save to DB
+  try {
+    await db.$transaction(async (tx) => {
+      // Step 1: Save main
+      const savedNotification = await tx.notification.create({
+        data: {
+          title,
+          message,
+          type,
+          targetUserId:
+            type === NotificationType.BOOKING ? targetUserId : undefined,
+        },
+      });
 
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-export async function processPushNotificationTickets(tickets: any[]) {
-  // Filter out tickets that have IDs (meaning they were successfully sent)
-  const receiptIds = tickets
-    .filter((ticket) => ticket.status === "ok")
-    .map((ticket) => ticket.id);
-
-  // If there are any receipt IDs, check them after a delay
-  if (receiptIds.length > 0) {
-    // Wait 15 seconds before checking (normally you would do this with a job queue in production)
-    setTimeout(() => {
-      checkPushNotificationReceipts(receiptIds).catch(console.error);
-    }, 15000);
+      // Step 3: Optional per-user entries
+      if (type === NotificationType.BOOKING && targetUserId) {
+        // Always create for targeted
+        await db.userNotification.create({
+          data: {
+            notificationId: savedNotification.id,
+            userId: targetUserId,
+          },
+        });
+      }
+      //  else if (type === NotificationType.NEW_PLACE && createPerUserTracking) {
+      //   const users = await db.user.findMany({ select: { id: true } });
+      //   await db.userNotification.createMany({
+      //     data: users.map((user) => ({
+      //       notificationId: savedNotification.id,
+      //       userId: user.id,
+      //     })),
+      //   });
+      // }
+      return savedNotification;
+    });
+  } catch (error) {
+    console.error("DB save failed:", error);
+    throw error;
   }
-
-  return receiptIds;
 }

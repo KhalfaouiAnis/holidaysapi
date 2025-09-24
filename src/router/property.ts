@@ -19,8 +19,6 @@ const PropertyInput = t.Object({
   is_featured: t.Optional(t.Boolean()),
 });
 
-// TODO: start/unstar a property
-
 export const propertyRouter = new Elysia({ prefix: "/properties" })
   .use(authPlugin)
   .post(
@@ -85,7 +83,7 @@ export const propertyRouter = new Elysia({ prefix: "/properties" })
       });
 
       return {
-        message: "Review removed",
+        message: "Rating removed",
       };
     }
     // Add rate
@@ -98,7 +96,7 @@ export const propertyRouter = new Elysia({ prefix: "/properties" })
     });
 
     return {
-      message: "Review added",
+      message: "Rating added",
     };
   })
   .get(

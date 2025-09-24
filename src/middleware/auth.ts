@@ -6,7 +6,7 @@ export const authPlugin = (app: Elysia) =>
   app
     .use(
       jwt({
-        secret: process.env.JWT_TOKEN as string,
+        secret: process.env.JWT_TOKEN_SECRET as string,
       })
     )
     .derive({ as: "local" }, async ({ jwt, headers }) => {
@@ -32,7 +32,7 @@ export const authPlugin = (app: Elysia) =>
           id: user.id,
           name: user.name,
           email: user.email,
-          image: user.avatar,
+          avatar: user.avatar,
         },
       };
     });
