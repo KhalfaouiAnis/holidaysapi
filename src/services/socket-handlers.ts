@@ -1,23 +1,22 @@
-import { User } from "@prisma/client";
 import { connections } from "../socket/store";
+import { ElysiaWS } from "elysia/dist/ws";
+import { messageHandler } from "./messageHandlers";
+import { NotificationMessage } from "../types";
 
-export const onOpen = async (ws: any) => {
+export const onOpen = async (ws: ElysiaWS<any>) => {
   const {
     jwt,
-    request: { headers },
+    request: { url },
   } = ws.data;
   try {
-    const payload = await jwt.verify(headers.get("authorization"));
-
+    const query = new URLSearchParams(url.split("?")[1] || "");
+    const payload = await jwt.verify(query.get("token"));
     if (!payload) {
       ws.close(1008, "Unauthorized");
       return;
     }
-
     const { user } = payload;
-
     ws.data.claims.user.id = user.id;
-
     connections.set(user.id, ws);
   } catch (error) {
     console.log("WS auth error:", error);
@@ -25,15 +24,8 @@ export const onOpen = async (ws: any) => {
   }
 };
 
-export const onMessage = (ws: any, message: any) => {
-  console.log(connections.keys())
-  for (const socket of connections.values()){
-    socket.send("New message coming")
-  }
-  ws.publish(
-    "event",
-    `Received message <${message}> from user: ${ws.data.claims.user.id}`
-  );
+export const onMessage = (ws: any, message: NotificationMessage) => {
+  messageHandler(ws, message);
 };
 
 export const onClose = (ws: any) => {

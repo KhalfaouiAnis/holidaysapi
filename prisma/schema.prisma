@@ -16,6 +16,7 @@ model User {
   username              String             @unique
   email                 String             @unique
   password              String
+  role                  UerRole            @default(USER)
   properties            Property[]         @relation("UserProperties")
   bookings              Booking[]
   favorites             Favorite[]
@@ -55,21 +56,21 @@ model Property {
 }
 
 model Booking {
-  id                  String    @id @default(cuid())
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
+  id                  String        @id @default(cuid())
+  created_at          DateTime      @default(now())
+  updated_at          DateTime      @updatedAt
   deleted_at          DateTime?
   property_id         String
   user_id             String
   check_in            DateTime
   check_out           DateTime
   total_price         Float
-  status              String    @default("pending")
+  status              BookingStatus @default(IN_PROGRESS)
   guest_count         Int
   special_requests    String?
   cancellation_reason String?
   payment_intent_id   String?
-  payment_status      String    @default("pending")
+  payment_status      BookingStatus @default(IN_PROGRESS)
 
   property         Property           @relation(fields: [property_id], references: [id])
   user             User               @relation(fields: [user_id], references: [id])
@@ -131,6 +132,21 @@ model UserNotification {
 }
 
 enum NotificationType {
-  NEW_PLACE
-  BOOKING
+  BROADCAST
+  USER_BOOKING
+  NOTIFICATION_READ
+}
+
+enum BookingStatus {
+  IN_PROGRESS
+  CANCELED
+  COMPLETED
+  ACCEPTED
+  FAILED
+  SUCCEEDED
+}
+
+enum UerRole {
+  ADMIN
+  USER
 }

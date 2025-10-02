@@ -11,6 +11,7 @@ import { userRouter } from "./router/user";
 import { webhookRouter } from "./services/webhook";
 import { socket } from "./socket/socket";
 import { NotificationRoute } from "./router/notification";
+import { HttpException, httpExceptionPlugin } from "elysia-http-exception";
 
 const app = new Elysia()
   .use(
@@ -33,6 +34,7 @@ const app = new Elysia()
       path: "/swagger",
     })
   )
+  .use(httpExceptionPlugin())
   .get("/", () => ({ message: "Welcome to Elysia" }))
   .get("/health", () => ({ status: "ok" }))
   .use(userRouter)
@@ -50,13 +52,21 @@ console.log(
 
 app.onError(({ code, error, set }) => {
   console.error(`Error [${code}]:`, error);
+
   switch (code) {
     case "VALIDATION":
       set.status = 400;
-      return { error: "Invalid request data" };
+      return {
+        error: "Invalid request data",
+        message: error.message,
+        details: error.all,
+      };
     case "NOT_FOUND":
       set.status = 404;
-      return { error: error.message };
+      return {
+        error: error.message,
+        message: "The requested resource was not found",
+      };
     case "INTERNAL_SERVER_ERROR":
       set.status = 401;
       return { error: "Authentication required" };
@@ -64,8 +74,18 @@ app.onError(({ code, error, set }) => {
       set.status = 403;
       return { error: "Access denied" };
     default:
-      set.status = 500;
-      return { error: "Internal server error" };
+      if (error instanceof HttpException) {
+        set.status = error.statusCode;
+        return {
+          error: error.name.replace("Exception", "Error"),
+          message: error.message,
+        };
+      }
+    // set.status = 500;
+    // return {
+    //   error: "Internal server error",
+    //   message: "An unexpected error occurred",
+    // };
   }
 });
 

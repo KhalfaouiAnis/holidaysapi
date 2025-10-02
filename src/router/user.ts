@@ -2,6 +2,7 @@ import { jwt } from "@elysiajs/jwt";
 import { Elysia, t } from "elysia";
 import { db } from "../db";
 import { authPlugin } from "../middleware/auth";
+import { NotFoundException } from "elysia-http-exception";
 
 export const userRouter = new Elysia({ prefix: "/users" })
   .use(
@@ -37,6 +38,7 @@ export const userRouter = new Elysia({ prefix: "/users" })
               id: true,
               name: true,
               email: true,
+              role: true,
               username: true,
               avatar: true,
             },
@@ -61,19 +63,19 @@ export const userRouter = new Elysia({ prefix: "/users" })
       });
 
       if (!user) {
-        return new Response("Invalid credentials", { status: 401 });
+        throw new NotFoundException("Invalid credentials");
       }
 
       const validPassword = await Bun.password.verify(password, user.password);
 
       if (!validPassword) {
-        return new Response("Invalid credentials", { status: 401 });
+        throw new NotFoundException("Invalid credentials");
       }
 
       const claims = {
         id: user.id,
         name: user.name,
-        email: user.email,
+        role: user.role,
         username: user.username,
         avatar: user.avatar,
       };
@@ -98,6 +100,42 @@ export const userRouter = new Elysia({ prefix: "/users" })
     }
   )
   .use(authPlugin)
+  .get(
+    "/",
+    async ({ query, user }) => {
+      const page = Number(query?.page || 1);
+      const pageSize = Number(query?.pageSize || 10);
+      const skip = (page - 1) * pageSize;
+
+      const [users, totalCount] = await Promise.all([
+        db.user.findMany({
+          take: pageSize,
+          skip,
+          omit: {
+            password: true,
+          },
+          orderBy: {
+            created_at: "desc",
+          },
+        }),
+        db.user.count(),
+      ]);
+
+      return {
+        data: users,
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      };
+    },
+    {
+      query: t.Object({
+        page: t.Optional(t.String()),
+        pageSize: t.Optional(t.String()),
+      }),
+    }
+  )
   .get("/me", async ({ user }) => {
     return { user };
   })

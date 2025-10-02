@@ -1,6 +1,8 @@
 import { Elysia, t } from "elysia";
 import { db } from "../db";
 import { authPlugin } from "../middleware/auth";
+import { UerRole } from "@prisma/client";
+import { BadRequestException } from "elysia-http-exception";
 
 const PropertyInput = t.Object({
   name: t.String(),
@@ -395,6 +397,29 @@ export const propertyRouter = new Elysia({ prefix: "/properties" })
     },
     {
       body: t.Partial(PropertyInput),
+    }
+  )
+  .post(
+    "/delete/bulk",
+    async ({ body, user }) => {
+      if (user.role !== UerRole.ADMIN) {
+        return new BadRequestException("Only admin can do this action.");
+      }
+
+      await db.property.deleteMany({
+        where: {
+          id: {
+            in: body,
+          },
+        },
+      });
+
+      return {
+        message: "Properties deleted successfully",
+      };
+    },
+    {
+      body: t.ArrayString(),
     }
   )
   .delete("/:id", async ({ params: { id }, user }) => {

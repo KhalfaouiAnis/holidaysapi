@@ -2,7 +2,8 @@ import { Elysia, t } from "elysia";
 import Stripe from "stripe";
 import { db } from "../db";
 import { authPlugin } from "../middleware/auth";
-import { Booking } from "@prisma/client";
+import { Booking, BookingStatus, UerRole } from "@prisma/client";
+import { parseStripePaymentStatus } from "../utils/booking";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-02-24.acacia",
@@ -51,7 +52,7 @@ export const bookingRouter = new Elysia()
             },
           ],
           NOT: {
-            OR: [{ status: "cancelled" }, { payment_status: "failed" }],
+            OR: [{ status: "CANCELED" }, { payment_status: "FAILED" }],
           },
         },
       });
@@ -98,11 +99,11 @@ export const bookingRouter = new Elysia()
             check_in,
             check_out,
             total_price,
-            status: "pending",
+            status: "IN_PROGRESS",
             guest_count: body.guest_count,
             special_requests: body.special_requests,
             payment_intent_id: paymentIntent.id,
-            payment_status: "accepted",
+            payment_status: parseStripePaymentStatus(paymentIntent.status),
           },
           include: {
             property: true,
@@ -132,6 +133,71 @@ export const bookingRouter = new Elysia()
     },
     {
       body: BookingInput,
+    }
+  )
+  .get(
+    "/bookings",
+    async ({ query }) => {
+      const page = Number(query?.page || 1);
+      const pageSize = Number(query?.pageSize || 10);
+      const skip = (page - 1) * pageSize;
+
+      const [bookings, totalCount] = await Promise.all([
+        db.booking.findMany({
+          select: {
+            id: true,
+            check_in: true,
+            check_out: true,
+            guest_count: true,
+            status: true,
+            payment_status: true,
+            total_price: true,
+            special_requests: true,
+            property: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                images: true,
+                city: true,
+                country: true,
+                address: true,
+              },
+            },
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true
+              },
+            },
+          },
+          skip,
+          take: pageSize,
+          orderBy: {
+            created_at: "desc",
+          },
+        }),
+        db.booking.count(),
+      ]);
+
+      return {
+        data: bookings,
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      };
+    },
+    {
+      query: t.Object({
+        page: t.Optional(t.String()),
+        pageSize: t.Optional(t.String()),
+      }),
+      beforeHandle({ user, status }) {
+        if (user.role !== UerRole.ADMIN) return status(403);
+      },
     }
   )
   .get(
@@ -235,7 +301,7 @@ export const bookingRouter = new Elysia()
         });
       }
 
-      if (booking.status === "completed" || booking.status === "cancelled") {
+      if (booking.status === "COMPLETED" || booking.status === "CANCELED") {
         return new Response("Cannot modify completed or cancelled bookings", {
           status: 400,
         });
@@ -267,7 +333,7 @@ export const bookingRouter = new Elysia()
               },
             ],
             NOT: {
-              OR: [{ status: "cancelled" }, { payment_status: "failed" }],
+              OR: [{ status: "CANCELED" }, { payment_status: "FAILED" }],
             },
           },
         });
@@ -342,6 +408,34 @@ export const bookingRouter = new Elysia()
       body: t.Partial(BookingInput),
     }
   )
+  .patch(
+    "bookings/:id/status/:status",
+    async ({ params: { id, status }, user }) => {
+      const booking = await db.booking.findUnique({
+        where: { id, user_id: user.id },
+      });
+      if (!booking) {
+        return new Response("Booking not found", { status: 404 });
+      }
+
+      if (booking.status === "COMPLETED" || booking.status === "FAILED") {
+        return new Response(
+          "Booking status cannot be changed after it's Failed or Completed. Please create a new booking",
+          { status: 400 }
+        );
+      }
+
+      await db.booking.update({
+        where: { id, user_id: user.id },
+        data: { status: status as BookingStatus },
+      });
+    },
+    {
+      beforeHandle({ user, status }) {
+        if (user.role !== UerRole.ADMIN) return status(403);
+      },
+    }
+  )
   .delete("bookings/:id", async ({ params: { id }, user }) => {
     const booking = await db.booking.findUnique({
       where: { id },
@@ -357,20 +451,23 @@ export const bookingRouter = new Elysia()
       });
     }
 
-    if (booking.status === "completed") {
+    if (booking.status === "COMPLETED") {
       return new Response("Cannot delete completed bookings", { status: 400 });
     }
 
     try {
-      if (booking.payment_intent_id && booking.payment_status === "pending") {
+      if (
+        booking.payment_intent_id &&
+        booking.payment_status === "IN_PROGRESS"
+      ) {
         await stripe.paymentIntents.cancel(booking.payment_intent_id);
       }
 
       await db.booking.update({
         where: { id },
         data: {
-          status: "cancelled",
-          payment_status: "cancelled",
+          status: "CANCELED",
+          payment_status: "CANCELED",
         },
       });
 
