@@ -136,6 +136,27 @@ export const bookingRouter = new Elysia()
     }
   )
   .get(
+    "/bookings/stats",
+    async () => {
+      const stats = await db.booking.groupBy({
+        by: ["status"],
+        _count: {
+          id: true,
+        },
+        _sum: {
+          total_price: true,
+        },
+      });
+
+      return stats;
+    },
+    {
+      beforeHandle({ user, status }) {
+        if (user.role !== UerRole.ADMIN) return status(403);
+      },
+    }
+  )
+  .get(
     "/bookings",
     async ({ query }) => {
       const page = Number(query?.page || 1);
@@ -169,7 +190,7 @@ export const bookingRouter = new Elysia()
                 id: true,
                 name: true,
                 email: true,
-                avatar: true
+                avatar: true,
               },
             },
           },
@@ -412,8 +433,9 @@ export const bookingRouter = new Elysia()
     "bookings/:id/status/:status",
     async ({ params: { id, status }, user }) => {
       const booking = await db.booking.findUnique({
-        where: { id, user_id: user.id },
+        where: { id },
       });
+
       if (!booking) {
         return new Response("Booking not found", { status: 404 });
       }
@@ -426,7 +448,7 @@ export const bookingRouter = new Elysia()
       }
 
       await db.booking.update({
-        where: { id, user_id: user.id },
+        where: { id },
         data: { status: status as BookingStatus },
       });
     },
